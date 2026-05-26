@@ -1,0 +1,17 @@
+# Runtime / cache / state — never commit
+*.bak*
+*.preinstall-*
+.DS_Store
+.last-cleanup
+
+# Local overrides (per-machine)
+settings.local.json
+
+# Environment files (defense in depth)
+.env
+.env.*
+
+# Editor crud
+.vscode/
+.idea/
+*.swp

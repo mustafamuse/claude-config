@@ -1,0 +1,240 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_CODE_NEW_INIT": "true",
+    "ENABLE_PROMPT_CACHING_1H": "1",
+    "MAX_THINKING_TOKENS": "8000",
+    "CLAUDE_CODE_FORK_SUBAGENT": "1",
+    "MAX_MCP_OUTPUT_TOKENS": "50000",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "400000"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(bun *)",
+      "Bash(bunx *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(tree *)",
+      "Bash(wc *)",
+      "Bash(jq *)",
+      "Bash(curl *)",
+      "Bash(stripe *)",
+      "Bash(vercel *)",
+      "Bash(supabase *)",
+      "Bash(kill *)",
+      "Bash(pkill *)",
+      "Bash(lsof *)",
+      "Bash(open *)",
+      "Bash(source *)",
+      "Bash(echo *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(sort *)",
+      "Bash(which *)",
+      "Read",
+      "WebSearch",
+      "WebFetch(domain:*)",
+      "mcp__github__*",
+      "mcp__plugin_context7_context7__*",
+      "mcp__plugin_supabase_supabase__*",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm test:*)",
+      "Bash(npx tsc:*)",
+      "Bash(python3:*)",
+      "Bash(python main.py:*)",
+      "Bash(pip install:*)",
+      "Bash(pip3 install:*)",
+      "Bash(ffmpeg:*)",
+      "Bash(brew install:*)",
+      "Bash(rclone ls:*)",
+      "Bash(tailscale ip:*)",
+      "Bash(stripe subscriptions list:*)",
+      "Bash(stripe payments list:*)",
+      "Bash(sudo installer:*)",
+      "Bash(diskutil list:*)",
+      "Bash(which exiftool:*)",
+      "Bash(mdls:*)",
+      "SlashCommand(/ultra-think:*)",
+      "Bash(tmux -V)",
+      "Bash(npm install:*)",
+      "Bash(ao:*)",
+      "Bash(pnpm -v)",
+      "Bash(bash scripts/setup.sh)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(sudo *)",
+      "Bash(npx prisma migrate reset *)"
+    ],
+    "defaultMode": "plan"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/block-dangerous.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/filter-test-output.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/protect-files.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/inject-git-context.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/stop-review-gate.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Post-compact reminder: Check CLAUDE.md for project rules. Use server components by default. Validate input with Zod. Return ActionResult<T> from server actions. Never use any type. If you wrote a NOTES.md, re-read it now.'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "osascript -e 'display notification \"Claude needs your attention\" with title \"Claude Code\"'"
+          }
+        ]
+      }
+    ],
+    "WorktreeCreate": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/worktree-create.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/session-journal.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash -c 'cols=$(stty size </dev/tty 2>/dev/null | awk '\"'\"'{print $2}'\"'\"'); export COLUMNS=$(( ${cols:-120} > 4 ? ${cols:-120} - 4 : 1 )); plugin_dir=$(ls -d \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\"/plugins/cache/*/claude-hud/*/ 2>/dev/null | awk -F/ '\"'\"'{ print $(NF-1) \"\\t\" $(0) }'\"'\"' | grep -E '\"'\"'^[0-9]+\\.[0-9]+\\.[0-9]+[[:space:]]'\"'\"' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); exec \"/opt/homebrew/bin/bun\" --env-file /dev/null \"${plugin_dir}src/index.ts\"'"
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-code-plugins": true,
+    "feature-dev@claude-code-plugins": true,
+    "commit-commands@claude-code-plugins": true,
+    "supabase@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "hookify@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "pr-review-toolkit@claude-plugins-official": true,
+    "security-guidance@claude-code-plugins": true,
+    "code-review@claude-code-marketplace": true,
+    "github@claude-plugins-official": true,
+    "explanatory-output-style@claude-plugins-official": true,
+    "learning-output-style@claude-plugins-official": true,
+    "stripe@claude-plugins-official": true,
+    "slack@claude-plugins-official": true,
+    "linear@claude-plugins-official": true,
+    "playwright@claude-plugins-official": false,
+    "context7@claude-plugins-official": true,
+    "firebase@claude-plugins-official": false,
+    "gitlab@claude-plugins-official": false,
+    "greptile@claude-plugins-official": false,
+    "asana@claude-plugins-official": false,
+    "agent-sdk-dev@claude-plugins-official": false,
+    "serena@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "sentry@claude-plugins-official": true,
+    "plugin-dev@claude-plugins-official": true,
+    "claude-opus-4-5-migration@claude-code-plugins": true,
+    "skill-creator@claude-plugins-official": true,
+    "hookify@claude-code-plugins": false,
+    "vercel@claude-plugins-official": true,
+    "claude-hud@claude-hud": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-hud": {
+      "source": {
+        "source": "github",
+        "repo": "jarrodwatts/claude-hud"
+      }
+    }
+  },
+  "alwaysThinkingEnabled": true,
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "light-daltonized",
+  "teammateMode": "auto",
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true,
+  "voiceEnabled": true
+}
