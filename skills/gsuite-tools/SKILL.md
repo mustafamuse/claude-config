@@ -86,6 +86,22 @@ gog tasks list <listId>
 python3 $GDOCS_SCRIPT comments "https://docs.google.com/document/d/1ABC.../edit"
 ```
 
+**Multi-tab Google Docs (2024+ feature)** — Docs can contain a tree of tabs (e.g., `2026 → May 25 → Retro H1`). `gdocs.py doc-get` on this install has been patched to support tabs: pass `--tab <tabId>` explicitly, OR paste a URL with `?tab=t.xxx` and it auto-detects. Available behaviors:
+
+```bash
+# Auto-detect tab from URL
+python3 $GDOCS_SCRIPT doc-get --text \
+  "https://docs.google.com/document/d/<docId>/edit?tab=t.2a0kcvw3gde"
+
+# Explicit tab flag
+python3 $GDOCS_SCRIPT doc-get --tab t.2a0kcvw3gde <docId>
+
+# Invalid tab → error lists ALL tabs with IDs+titles (good for discovery)
+python3 $GDOCS_SCRIPT doc-get --tab t.bogus <docId>
+```
+
+The patch adds `--tab`, `extract_tab_id`, `find_tab`, and threads `includeTabsContent=true` into the API call. **This patch is local-only — only on this Mac's `~/.local/gsuite-tools/gdocs/gdocs.py`**. On a fresh install the original `gdocs.py` lacks `--tab` and the auto-detect; treat the patch as a known local enhancement that may need re-applying after a re-install. Original (unpatched) behavior: returns only the root tab's content, silently ignoring any `?tab=...` URL param.
+
 **Get a fresh access token for ad-hoc API calls:**
 
 ```bash
@@ -166,6 +182,13 @@ gog drive search "report" --json
 
 # Read comments on a Doc
 python3 $GDOCS_SCRIPT comments <doc_url_or_id>
+
+# Read a Doc (root tab) as plain text
+python3 $GDOCS_SCRIPT doc-get --text <doc_url_or_id>
+
+# Read a specific tab in a multi-tab Doc (auto-detects from ?tab=... in URL)
+python3 $GDOCS_SCRIPT doc-get --text "https://docs.google.com/document/d/<id>/edit?tab=t.xxx"
+python3 $GDOCS_SCRIPT doc-get --text --tab t.xxx <doc_id>
 
 # Add a comment to a Doc
 python3 $GDOCS_SCRIPT comment-add <doc_url_or_id> "Looks good — minor nit on para 3"
