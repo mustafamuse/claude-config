@@ -100,7 +100,24 @@ python3 $GDOCS_SCRIPT doc-get --tab t.2a0kcvw3gde <docId>
 python3 $GDOCS_SCRIPT doc-get --tab t.bogus <docId>
 ```
 
-The patch adds `--tab`, `extract_tab_id`, `find_tab`, and threads `includeTabsContent=true` into the API call. **This patch is local-only — only on this Mac's `~/.local/gsuite-tools/gdocs/gdocs.py`**. On a fresh install the original `gdocs.py` lacks `--tab` and the auto-detect; treat the patch as a known local enhancement that may need re-applying after a re-install. Original (unpatched) behavior: returns only the root tab's content, silently ignoring any `?tab=...` URL param.
+The patch adds `--tab`, `extract_tab_id`, `find_tab`, and threads `includeTabsContent=true` into the API call. Original (unpatched) behavior: returns only the root tab's content, silently ignoring any `?tab=...` URL param.
+
+**Portable patch location:** `~/dev/claude-config/patches/gdocs-multi-tab-support.patch` (131 lines, tracked in the claude-config repo).
+
+**Apply on a fresh install:**
+
+```bash
+cd ~/.local/gsuite-tools/gdocs
+patch -p1 < ~/dev/claude-config/patches/gdocs-multi-tab-support.patch
+# Verify:
+python3 $GDOCS_SCRIPT doc-get --help | grep -- --tab    # should show the flag
+```
+
+**Verifying the patch is applied** on any machine:
+
+```bash
+grep -q "extract_tab_id" $GDOCS_SCRIPT && echo "patched" || echo "vanilla"
+```
 
 **Get a fresh access token for ad-hoc API calls:**
 

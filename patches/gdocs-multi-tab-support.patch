@@ -1,0 +1,131 @@
+--- a/gdocs.py
++++ b/gdocs.py
+@@ -47,6 +47,40 @@
+     return doc_ref
+ 
+ 
++def extract_tab_id(doc_ref: str) -> Optional[str]:
++    """Extract tab ID from a Google Docs URL (?tab=t.xxx). Returns None if absent."""
++    if "?" not in doc_ref:
++        return None
++    query = doc_ref.split("?", 1)[1].split("#", 1)[0]
++    for pair in query.split("&"):
++        if pair.startswith("tab="):
++            tab = pair[4:]
++            return tab or None
++    return None
++
++
++def find_tab(tabs: list, target_id: str) -> Optional[dict]:
++    """Recursively search a tabs tree for a tab with tabProperties.tabId == target_id."""
++    for tab in tabs:
++        props = tab.get("tabProperties", {})
++        if props.get("tabId") == target_id:
++            return tab
++        found = find_tab(tab.get("childTabs") or [], target_id)
++        if found is not None:
++            return found
++    return None
++
++
++def list_tab_ids(tabs: list, prefix: str = "") -> list:
++    """Flatten the tabs tree to a list of 'tabId (title)' strings for error messages."""
++    out = []
++    for tab in tabs:
++        p = tab.get("tabProperties", {})
++        out.append(f"{p.get('tabId')!r} ({p.get('title')!r})")
++        out.extend(list_tab_ids(tab.get("childTabs") or [], prefix))
++    return out
++
++
+ # =============================================================================
+ # Comment Operations (Google Drive API)
+ # =============================================================================
+@@ -177,13 +211,26 @@
+ 
+ 
+ def get_document(
+-    access_token: str, doc_id: str, suggestions_mode: str = "SUGGESTIONS_INLINE"
++    access_token: str,
++    doc_id: str,
++    suggestions_mode: str = "SUGGESTIONS_INLINE",
++    tab_id: Optional[str] = None,
+ ) -> dict:
+-    """Get document content."""
++    """Get document content.
++
++    If tab_id is given (or auto-detected from a ?tab=... URL), request
++    includeTabsContent=true and return the matching documentTab wrapped to
++    look like a normal doc (with documentId, title, body) so downstream code
++    (extract_text, etc.) works unchanged.
++    """
++    if tab_id is None:
++        tab_id = extract_tab_id(doc_id)
+     doc_id = extract_doc_id(doc_id)
+     headers = get_headers(access_token)
+ 
+     params = {"suggestionsViewMode": suggestions_mode}
++    if tab_id is not None:
++        params["includeTabsContent"] = "true"
+ 
+     response = requests.get(
+         f"{DOCS_API_BASE}/documents/{doc_id}", headers=headers, params=params
+@@ -192,7 +239,28 @@
+     if response.status_code != 200:
+         raise Exception(f"Failed to get document: {response.text}")
+ 
+-    return response.json()
++    doc = response.json()
++    if tab_id is None:
++        return doc
++
++    target = find_tab(doc.get("tabs", []), tab_id)
++    if target is None:
++        available = list_tab_ids(doc.get("tabs", []))
++        raise Exception(
++            f"Tab {tab_id!r} not found. Available tabs: "
++            + (", ".join(available) if available else "(none)")
++        )
++
++    tab_props = target.get("tabProperties", {})
++    doc_tab = target.get("documentTab", {})
++    return {
++        "documentId": doc.get("documentId"),
++        "title": f"{doc.get('title', 'Untitled')} | tab: {tab_props.get('title', '(no title)')}",
++        "body": doc_tab.get("body", {}),
++        "namedStyles": doc_tab.get("namedStyles", doc.get("namedStyles")),
++        "lists": doc_tab.get("lists", doc.get("lists")),
++        "_tabId": tab_id,
++    }
+ 
+ 
+ def extract_text(document: dict) -> str:
+@@ -1662,9 +1730,13 @@
+ 
+     # Document content
+     doc_get = subparsers.add_parser("doc-get", help="Get document content")
+-    doc_get.add_argument("doc_id", help="Document ID or URL")
++    doc_get.add_argument("doc_id", help="Document ID or URL (?tab=... auto-detected)")
+     doc_get.add_argument("--text", action="store_true", help="Extract plain text only")
+     doc_get.add_argument(
++        "--tab",
++        help="Tab ID to read (e.g. 't.2a0kcvw3gde'). Auto-detected from URL ?tab=... if present.",
++    )
++    doc_get.add_argument(
+         "--suggestions",
+         choices=["inline", "accepted", "rejected"],
+         default="inline",
+@@ -2022,7 +2094,12 @@
+                 "accepted": "PREVIEW_SUGGESTIONS_ACCEPTED",
+                 "rejected": "PREVIEW_WITHOUT_SUGGESTIONS",
+             }
+-            doc = get_document(access_token, args.doc_id, mode_map[args.suggestions])
++            doc = get_document(
++                access_token,
++                args.doc_id,
++                mode_map[args.suggestions],
++                tab_id=args.tab,
++            )
+             if args.text:
+                 print(extract_text(doc))
+             elif args.json:
